@@ -11,10 +11,62 @@
    ============================================================ */
 
 /* ▼ 아스타산스 — 여기 아래에 붙여넣기 (font-family 를 'MyHead' 로) */
+@font-face {
+    font-family: 'MyHead';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2505-1@1.0/AstaSans-Light.woff2') format('woff2');
+    font-weight: 300;
+    font-display: swap;
+}
 
+@font-face {
+    font-family: 'MyHead';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2505-1@1.0/AstaSans-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MyHead';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2505-1@1.0/AstaSans-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MyHead';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2505-1@1.0/AstaSans-SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MyHead';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2505-1@1.0/AstaSans-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MyHead';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2505-1@1.0/AstaSans-ExtraBold.woff2') format('woff2');
+    font-weight: 800;
+    font-display: swap;
+}
 
 /* ▼ 느좋체 — 여기 아래에 붙여넣기 (font-family 를 'MyBody' 로) */
+@font-face {
+    font-family: 'MyBody';
+    src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2610081905@r/r/느좋체R.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
 
+@font-face {
+    font-family: 'MyBody';
+    src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2610081905@r/r/느좋체B.woff2') format('woff2');
+    font-weight: 700;
+    font-display: swap;
+}
 
 /* 예시 (이런 모양이에요. 주소는 눈누에서 복사한 걸 쓰세요)
 @font-face {
