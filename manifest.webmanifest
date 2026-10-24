@@ -1,7 +1,7 @@
 {
   "id": "byeol-docs",
-  "name": "별문서",
-  "short_name": "별문서",
+  "name": "eddytor",
+  "short_name": "eddytor",
   "description": "글쓰기와 강의 필기를 위한 문서 편집 앱",
   "lang": "ko",
   "start_url": "./",
