@@ -56,14 +56,21 @@
 /* ▼ 느좋체 — 여기 아래에 붙여넣기 (font-family 를 'MyBody' 로) */
 @font-face {
     font-family: 'MyBody';
-    src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2610081905@r/r/느좋체R.woff2') format('woff2');
-    font-weight: 400;
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/NEXON Lv2 Gothic Light.woff') format('woff');
+    font-weight: 300;
     font-display: swap;
 }
 
 @font-face {
     font-family: 'MyBody';
-    src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2610081905@r/r/느좋체B.woff2') format('woff2');
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/NEXON Lv2 Gothic.woff') format('woff');
+    font-weight: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MyBody';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@2.1/NEXON Lv2 Gothic Bold.woff') format('woff');
     font-weight: 700;
     font-display: swap;
 }
