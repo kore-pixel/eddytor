@@ -371,6 +371,7 @@ async function deleteItem(id) {
     if (!d) continue;
     if (d.share && d.share.on) { try { await rpc('unpublish_doc', { p_id: d.share.id, p_token: d.share.token }); } catch (e) { /* 서버 정리는 최선만 */ } }
     if (d.recs && d.recs.length) EDREC.dropDoc(d);
+    if (d.pdfs && d.pdfs.length) EDPDF.dropDoc(d);
     db.tomb[x] = { t: Date.now(), type: d.type };
     delete db.dirty[x]; delete db.items[x];
   }
@@ -449,7 +450,7 @@ function renderHome() {
 const renderHomeIfShown = () => { if (!$('#home').hidden) renderHome(); };
 function showHome() {
   if (current) flushNow();
-  EDINK.unload(); EDREC.unload();
+  EDINK.unload(); EDREC.unload(); EDPDF.unload();
   current = null; db.open = null;
   $('#page').hidden = true; $('#home').hidden = false;
   $('#saveState').textContent = '';
@@ -474,7 +475,7 @@ function openDoc(id) {
   $('#page').hidden = false; $('#home').hidden = true;
   $('#btnShare').disabled = false; $('#btnExport').disabled = false;
   hist = []; hi = -1; snap();
-  EDINK.load(it); EDREC.load(it);
+  EDINK.load(it); EDREC.load(it); EDPDF.load(it);
   persist(); renderTree(); updateCount(); updateState();
   $('#saveState').textContent = '';
   document.title = (it.title || '제목 없음') + ' · eddytor';
@@ -896,7 +897,7 @@ $('#btnBackup').onclick = () => {
         if (!it || !it.id) return;
         const have = db.items[it.id];
         if (have && have.updated >= it.updated) return;
-        if (it.type === 'doc') { it.html = sanitizeHTML(it.html || ''); it.ink = EDINK.clean(it.ink); it.inkH = Number(it.inkH) || 0; }
+        if (it.type === 'doc') { it.html = sanitizeHTML(it.html || ''); it.ink = EDINK.clean(it.ink); it.pdfs = EDPDF.clean(it.pdfs); it.inkH = Number(it.inkH) || 0; }
         it.share = have ? have.share : null;
         db.items[it.id] = it; delete db.tomb[it.id]; markDirty(it.id); n++;
       });
@@ -946,7 +947,7 @@ function applyRemote(r) {
     return;
   }
   delete db.tomb[r.id];
-  const it = { id: r.id, type: r.type, parent: r.parent, title: r.title, html: r.html, indent: !!r.indent, share: r.share, created: Number(r.created), updated: Number(r.updated), ink: EDINK.clean(r.ink), inkH: Number(r.ink_h) || 0, recs: l ? l.recs : undefined };
+  const it = { id: r.id, type: r.type, parent: r.parent, title: r.title, html: r.html, indent: !!r.indent, share: r.share, created: Number(r.created), updated: Number(r.updated), ink: EDINK.clean(r.ink), inkH: Number(r.ink_h) || 0, recs: l ? l.recs : undefined, pdfs: l ? l.pdfs : undefined };
   db.items[r.id] = it; delete db.dirty[r.id];
   if (current && current.id === r.id) {          // 열어 둔 문서가 다른 기기에서 바뀐 경우
     const sel = getOffsets();
@@ -954,7 +955,7 @@ function applyRemote(r) {
     editor.innerHTML = it.html || '<p><br></p>'; ensureBlocks();
     editor.classList.toggle('indent-on', !!it.indent); $('#indentChk').checked = !!it.indent;
     titleInp.value = it.title;
-    setOffsets(sel); hist = []; hi = -1; snap(); updateCount(); EDINK.load(it); EDREC.load(it);
+    setOffsets(sel); hist = []; hi = -1; snap(); updateCount(); EDINK.load(it); EDREC.load(it); EDPDF.load(it);
   }
 }
 
@@ -1153,6 +1154,9 @@ EDINK.init({
 $('#btnInk').onclick = () => EDINK.toggle();
 $('#btnImg').onclick = () => EDINK.pickImage();
 $('#btnRec').onclick = () => EDREC.toggle();
+EDPDF.init({ toast, ask: askText, confirm: askConfirm, dialog, closeDialog: () => dlg.close('x'), scroller: $('#scroller'), page: $('#page'),
+  touch: d => { d.updated = Date.now(); markDirty(d.id); scheduleSave(); } });
+$('#btnPdf').onclick = () => EDPDF.pick();
 updateAccountBtn();
 $('#colorBar').style.background = lastColor;
 showHome();

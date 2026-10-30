@@ -352,3 +352,20 @@ body.view-mode #viewer{display:block}
 #recBadge{color:#b3261e;font-size:12px;font-family:var(--ui-head);font-weight:700;cursor:pointer;margin-right:8px}
 #recBadge[hidden]{display:none}
 @media print{#recPanel,#recHi,#recBadge{display:none!important}}
+
+/* ---------- PDF (글자 살려서 보기) ---------- */
+.pdfblk{position:absolute;left:0;right:0;z-index:1}
+.pdfpg{position:relative;background:#fff;box-shadow:0 0 0 1px var(--line),0 2px 8px rgba(0,0,0,.06);overflow:hidden}
+.pdfpg canvas{position:absolute;inset:0;display:block}
+.pdfmiss{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:13px;background:#f1f1ef}
+.pdfdel{position:absolute;top:6px;right:6px;z-index:3;height:24px;padding:0 8px;border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.9);color:#b3261e;font-size:11px;cursor:pointer}
+.textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;text-align:initial;z-index:2}
+.textLayer span,.textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
+.textLayer ::selection{background:rgba(28,100,242,.3)}
+#page.ink-on .pdfblk{pointer-events:none}
+#pdfHl{position:fixed;z-index:60;height:34px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+#pdfHl[hidden]{display:none}
+.pdfres{display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto;margin-top:8px}
+.pdfhit{text-align:left;border:0;background:transparent;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1.4}
+.pdfhit:hover{background:#efefec}
+@media print{#pdfHl{display:none!important}.pdfdel{display:none!important}}

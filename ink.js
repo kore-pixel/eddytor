@@ -463,6 +463,7 @@ function buildBar() {
       h('button', { class: 'tb danger', text: '삭제', onclick: delSel })),
     h('i', { class: 'sep' }),
     h('button', { class: 'tb', text: '사진', title: '사진 넣기', onclick: () => E.pickImage() }),
+    h('button', { class: 'tb', text: 'PDF', title: 'PDF 불러오기', onclick: () => window.EDPDF && EDPDF.pick() }),
     h('button', { class: 'tb', 'data-k': 'undo', text: '↶', title: '필기 실행 취소', onclick: undo }),
     h('button', { class: 'tb', 'data-k': 'redo', text: '↷', title: '필기 다시 실행', onclick: redo }),
     h('button', { class: 'tb done', text: '필기 끝내기', onclick: () => E.setActive(false) }),
@@ -577,6 +578,40 @@ async function addImages(files) {
   setTool('select'); sel.clear(); ids.forEach(i => sel.add(i)); renderAll(); commit();
   ctx.toast('사진을 넣었어요. 끌어서 옮기고 모서리로 크기를 바꿔요');
 }
+function nextY() {                          // 문서 글 아래, 이미 놓은 그림 아래의 빈 자리
+  const W = ctx.page.offsetWidth / scale || BASE;
+  const ed = ctx.page.querySelector('#editor');
+  let y = (ed.getBoundingClientRect().bottom - ctx.page.getBoundingClientRect().top) / scale;
+  strokes.forEach(s => { if (s.kind === 'img') y = Math.max(y, s.y + s.h); });
+  return Math.round(y + 16);
+}
+function ensureHeight(y) { if (!doc) return; doc.inkH = Math.max(doc.inkH || 0, Math.ceil(y + 80)); applyHeight(); ctx.changed(); }
+function addHighlights(rects) {             // [[x0, x1, yMid, height], ...] (페이지 좌표) → 형광펜 획
+  if (!doc || !rects.length) return;
+  const rn = ctx.recNow && ctx.recNow();
+  rects.forEach(([x0, x1, y, hh]) => strokes.push({ id: uid(), tool: 'hl', color: st.hcolor, w: Math.max(4, Math.round(hh * 10) / 10), pts: [[Math.round(x0 * 10) / 10, Math.round(y * 10) / 10, .5], [Math.round(x1 * 10) / 10, Math.round(y * 10) / 10, .5]], ...(rn ? { r: rn.rid, t: rn.ms } : {}) }));
+  doc.ink = strokes; renderAll(); commit();
+}
+async function placePages(pages) {           // PDF 쪽(그림)을 문서 아래에 쭉 이어서 놓기
+  if (!doc || !pages.length) return;
+  const W = ctx.page.offsetWidth / scale || BASE;
+  const ed = ctx.page.querySelector('#editor');
+  let y = (ed.getBoundingClientRect().bottom - ctx.page.getBoundingClientRect().top) / scale;
+  strokes.forEach(s => { if (s.kind === 'img') y = Math.max(y, s.y + s.h); });
+  y = Math.round(y + 16);
+  const y0 = y;
+  for (const pg of pages) {
+    const bid = uid() + uid();
+    await idbPut(bid, { blob: pg.blob });
+    const dh = W * pg.h / pg.w;
+    strokes.push({ id: uid(), kind: 'img', bid, x: 0, y: Math.round(y), w: Math.round(W), h: Math.round(dh), rot: 0 });
+    y += dh + 14;
+  }
+  doc.ink = strokes; doc.inkH = Math.max(doc.inkH || 0, Math.ceil(y + 80)); applyHeight();
+  renderAll(); commit();
+  const r = svg.getBoundingClientRect(), sr = ctx.scroller.getBoundingClientRect();
+  ctx.scroller.scrollTop += (r.top + y0 * scale) - sr.top - 24;
+}
 let fileIn = null;
 function pickImage() {
   if (!doc) return;
@@ -610,6 +645,7 @@ async function importImages(map) {
 
 /* ---------- 바깥에서 쓰는 함수 ---------- */
 const E = window.EDINK = {
+  currentDoc: () => doc, nextY, ensureHeight, addHighlights, placePages, hasDoc: () => !!doc,
   store: { put: idbPut, get: idbGet, del: idbDel }, setHead,
   clean, pickImage, collectImages, importImages,
   init(c) {
