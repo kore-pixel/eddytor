@@ -329,3 +329,26 @@ body.view-mode #viewer{display:block}
 #page.ink-on #editor,#page.ink-on #docTitle{user-select:none;-webkit-user-select:none}
 #btnInk.on{background:var(--ink);color:#fff}
 @media print{#inkBar{display:none!important}}
+
+/* ---------- 녹음 ---------- */
+#recPanel{margin:6px 16px 0;padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:6px}
+#recPanel[hidden]{display:none}
+.rec-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rec-row .spacer{flex:1}
+#recTime{font-variant-numeric:tabular-nums;font-family:var(--ui-head);min-width:44px}
+#recTime.live{color:#b3261e;font-weight:700}
+#recToggle.danger{background:#b3261e;border-color:#b3261e}
+#recList{display:flex;flex-direction:column;gap:2px;max-height:112px;overflow:auto}
+.rec-item{display:flex;align-items:center;gap:4px;font-size:13px;padding:2px 6px;border-radius:8px;cursor:pointer}
+.rec-item:hover{background:#f6f6f4}
+.rec-item.on{background:#efefec;font-weight:700}
+.rec-item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-item .tb{height:26px;font-size:12px}
+.rec-item .tb.danger{color:#b3261e}
+#recAudio{width:100%;height:36px}
+#recHi{position:absolute;left:6px;right:6px;background:rgba(255,200,0,.16);border-radius:6px;pointer-events:none}
+#recHi[hidden]{display:none}
+#page.rec-on #editor > [data-rec]{box-shadow:-6px 0 0 -3px #c9c9c4}
+#recBadge{color:#b3261e;font-size:12px;font-family:var(--ui-head);font-weight:700;cursor:pointer;margin-right:8px}
+#recBadge[hidden]{display:none}
+@media print{#recPanel,#recHi,#recBadge{display:none!important}}

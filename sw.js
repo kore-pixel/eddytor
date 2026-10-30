@@ -1,7 +1,7 @@
 // eddytor 서비스 워커 — 앱 껍데기와 폰트를 저장해 오프라인에서도 열리게 해요.
 // 앱을 수정해서 올릴 때는 아래 버전 숫자를 올려 주세요.
-const VERSION = 'eddytor-v5';
-const SHELL = ['./', 'index.html', 'style.css', 'fonts.css', 'my-fonts.css', 'app.js', 'sync.js', 'ink.js', 'config.js', 'manifest.webmanifest', 'icon.svg',
+const VERSION = 'eddytor-v6';
+const SHELL = ['./', 'index.html', 'style.css', 'fonts.css', 'my-fonts.css', 'app.js', 'sync.js', 'ink.js', 'rec.js', 'config.js', 'manifest.webmanifest', 'icon.svg',
   'assets/star-chrome.png', 'assets/star-chrome-sm.png',
   'fonts/Pretendard-Regular.woff2', 'fonts/Pretendard-Bold.woff2', 'fonts/KoPubWorld-Dotum-Medium.woff2', 'fonts/KoPubWorld-Dotum-Bold.woff2',
   'fonts/NanumMyeongjo-Regular.woff2', 'fonts/NanumMyeongjo-Bold.woff2'];

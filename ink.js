@@ -6,6 +6,7 @@
 const NS = 'http://www.w3.org/2000/svg';
 const BASE = 780;
 const COLORS = ['#161616', '#b3261e', '#d9480f', '#e8a200', '#2f9e44', '#1c64f2', '#5f3dc4', '#ffd43b', '#ff8fab'];
+const meta = s => (s.r ? { r: s.r, t: s.t } : {});
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs || {}) e.setAttribute(k, attrs[k]); return e; };
@@ -39,6 +40,7 @@ function clean(arr) {
       tool: s.tool === 'hl' ? 'hl' : 'pen',
       color: /^#[0-9a-f]{6}$/i.test(s.color) ? s.color : '#161616',
       w: clamp(+s.w || 3, 0.5, 80), pts,
+      ...(typeof s.r === 'string' && isFinite(s.t) ? { r: s.r.replace(/[^\w-]/g, '').slice(0, 24), t: Math.max(0, Math.round(+s.t)) } : {}),
     });
   }
   return out;
@@ -242,7 +244,7 @@ function applyLasso(poly) {
     while (i < flags.length) {
       let j = i; while (j + 1 < flags.length && flags[j + 1] === flags[i]) j++;
       const a = Math.max(0, i - 1), b = Math.min(flags.length - 1, j + 1);   // 경계 점을 양쪽에 걸쳐 두면 잘린 자리가 끊겨 보이지 않아요
-      const ns = { id: uid(), tool: s.tool, color: s.color, w: s.w, pts: s.pts.slice(a, b + 1).map(p => p.slice()) };
+      const ns = { id: uid(), tool: s.tool, color: s.color, w: s.w, ...meta(s), pts: s.pts.slice(a, b + 1).map(p => p.slice()) };
       next.push(ns); if (flags[i]) sel.add(ns.id);
       i = j + 1;
     }
@@ -263,6 +265,12 @@ function down(e) {
   const [x, y] = pt(e);
   const erasing = tool === 'erase' || (e.pointerType === 'pen' && (e.buttons & 32));
   if (erasing) { drag = { type: 'erase', hit: false, last: null }; eraseTo(x, y); cursor(x, y); return; }
+  if (tool === 'listen') {                                   // 획을 누르면 녹음의 그 시점으로
+    const t = [...strokes].reverse().find(q => !q.kind && hit(q, x, y, 10));
+    if (!t) return;
+    if (t.r && t.t != null) ctx.onSeek && ctx.onSeek(t.r, t.t); else ctx.toast('녹음 중에 쓴 필기가 아니에요');
+    return;
+  }
   if (tool === 'select') {
     const hd = e.target && e.target.dataset ? e.target.dataset.h : null;
     const list = selList();
@@ -282,6 +290,8 @@ function down(e) {
     drag = { type: 'lasso', pts: [[x, y]] }; renderUI(); syncBar(); return;
   }
   const s = { id: uid(), tool: tool === 'hl' ? 'hl' : 'pen', color: tool === 'hl' ? st.hcolor : st.color, w: tool === 'hl' ? st.hw : st.pw, pts: [[x, y, e.pointerType === 'pen' ? e.pressure || 0.5 : 0.5]] };
+  const rn = ctx.recNow && ctx.recNow();            // 녹음 중이면 이 획이 쓰인 시점을 기록해요
+  if (rn) { s.r = rn.rid; s.t = rn.ms; }
   drag = { type: 'draw', s };
   paint(s);
 }
@@ -361,7 +371,7 @@ function erasePart(s, x, y, r) {       // 지우개가 닿은 부분만 도려�
   const pieces = []; let cur = [];
   D.forEach((p, i) => { if (keep[i]) cur.push(p); else { if (cur.length) pieces.push(cur); cur = []; } });
   if (cur.length) pieces.push(cur);
-  return pieces.filter(c => c.length >= 2).map(c => ({ id: uid(), tool: s.tool, color: s.color, w: s.w, pts: c }));
+  return pieces.filter(c => c.length >= 2).map(c => ({ id: uid(), tool: s.tool, color: s.color, w: s.w, ...meta(s), pts: c }));
 }
 function eraseAt(x, y) {
   const r = st.er;
@@ -402,7 +412,7 @@ function cursor(x, y) {
 function delSel() { if (!sel.size) return; strokes = strokes.filter(s => !sel.has(s.id)); sel.clear(); doc.ink = strokes; renderAll(); commit(); }
 function dup(s, off) {
   if (s.kind === 'img') return { id: uid(), kind: 'img', bid: s.bid, x: s.x + off, y: s.y + off, w: s.w, h: s.h, rot: s.rot || 0 };
-  return { id: uid(), tool: s.tool, color: s.color, w: s.w, pts: s.pts.map(p => [p[0] + off, p[1] + off, p[2]]) };
+  return { id: uid(), tool: s.tool, color: s.color, w: s.w, ...meta(s), pts: s.pts.map(p => [p[0] + off, p[1] + off, p[2]]) };
 }
 function cloneSel(off) {
   const list = selList(); if (!list.length) return;
@@ -431,7 +441,7 @@ function styleSel(patch, final) {            // 스타일 변경: 선택한 획 
 }
 
 /* ---------- 도구 줄 ---------- */
-const TOOLS = [['pen', '펜'], ['hl', '형광펜'], ['erase', '지우개'], ['select', '선택']];
+const TOOLS = [['pen', '펜'], ['hl', '형광펜'], ['erase', '지우개'], ['select', '선택'], ['listen', '듣기']];
 function buildBar() {
   bar = $bar();
   const mk = (t, l) => h('button', { class: 'tb tool', 'data-tool': t, text: l, onclick: () => setTool(t) });
@@ -463,7 +473,7 @@ const $bar = () => document.getElementById('inkBar');
 function setTool(t) {
   tool = t; cursor(); if (t !== 'select') sel.clear();
   renderUI(); syncBar();
-  svg.style.cursor = t === 'select' ? 'default' : t === 'erase' ? 'cell' : 'crosshair';
+  svg.style.cursor = t === 'select' ? 'default' : t === 'erase' ? 'cell' : t === 'listen' ? 'pointer' : 'crosshair';
 }
 function setColor(c, final = true) {
   if (tool === 'hl') st.hcolor = c; else st.color = c;
@@ -524,6 +534,13 @@ function idb() {
 const idbPut = (k, v) => idb().then(d => new Promise((res, rej) => { const t = d.transaction('b', 'readwrite'); t.objectStore('b').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }));
 const idbGet = k => idb().then(d => new Promise((res, rej) => { const q = d.transaction('b').objectStore('b').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }));
 
+const idbDel = k => idb().then(d => new Promise((res, rej) => { const t = d.transaction('b', 'readwrite'); t.objectStore('b').delete(k); t.oncomplete = res; t.onerror = () => rej(t.error); }));
+function setHead(rid, ms) {                  // 재생 중: 아직 안 쓴 획은 흐리게
+  strokes.forEach(s => {
+    if (s.kind) return; const e = els.get(s.id); if (!e) return;
+    e.style.opacity = (rid == null || s.r !== rid || s.t == null || s.t <= ms) ? '' : '0.12';
+  });
+}
 async function shrink(file) {                 // 긴 변 1600px 이하로 줄여서 저장 (용량 절약)
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
   const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
@@ -593,6 +610,7 @@ async function importImages(map) {
 
 /* ---------- 바깥에서 쓰는 함수 ---------- */
 const E = window.EDINK = {
+  store: { put: idbPut, get: idbGet, del: idbDel }, setHead,
   clean, pickImage, collectImages, importImages,
   init(c) {
     ctx = c;

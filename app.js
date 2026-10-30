@@ -370,6 +370,7 @@ async function deleteItem(id) {
     const d = db.items[x];
     if (!d) continue;
     if (d.share && d.share.on) { try { await rpc('unpublish_doc', { p_id: d.share.id, p_token: d.share.token }); } catch (e) { /* 서버 정리는 최선만 */ } }
+    if (d.recs && d.recs.length) EDREC.dropDoc(d);
     db.tomb[x] = { t: Date.now(), type: d.type };
     delete db.dirty[x]; delete db.items[x];
   }
@@ -448,7 +449,7 @@ function renderHome() {
 const renderHomeIfShown = () => { if (!$('#home').hidden) renderHome(); };
 function showHome() {
   if (current) flushNow();
-  EDINK.unload();
+  EDINK.unload(); EDREC.unload();
   current = null; db.open = null;
   $('#page').hidden = true; $('#home').hidden = false;
   $('#saveState').textContent = '';
@@ -473,7 +474,7 @@ function openDoc(id) {
   $('#page').hidden = false; $('#home').hidden = true;
   $('#btnShare').disabled = false; $('#btnExport').disabled = false;
   hist = []; hi = -1; snap();
-  EDINK.load(it);
+  EDINK.load(it); EDREC.load(it);
   persist(); renderTree(); updateCount(); updateState();
   $('#saveState').textContent = '';
   document.title = (it.title || '제목 없음') + ' · eddytor';
@@ -571,8 +572,9 @@ editor.addEventListener('beforeinput', e => {
   if (e.inputType === 'historyUndo') { e.preventDefault(); undo(); }
   else if (e.inputType === 'historyRedo') { e.preventDefault(); redo(); }
 });
-editor.addEventListener('input', () => {
+editor.addEventListener('input', e => {
   if (ensureBlocks()) { const r = document.createRange(); r.selectNodeContents(editor); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  EDREC.mark(e.inputType);
   onChanged();
 });
 editor.addEventListener('keydown', e => {
@@ -944,7 +946,7 @@ function applyRemote(r) {
     return;
   }
   delete db.tomb[r.id];
-  const it = { id: r.id, type: r.type, parent: r.parent, title: r.title, html: r.html, indent: !!r.indent, share: r.share, created: Number(r.created), updated: Number(r.updated), ink: EDINK.clean(r.ink), inkH: Number(r.ink_h) || 0 };
+  const it = { id: r.id, type: r.type, parent: r.parent, title: r.title, html: r.html, indent: !!r.indent, share: r.share, created: Number(r.created), updated: Number(r.updated), ink: EDINK.clean(r.ink), inkH: Number(r.ink_h) || 0, recs: l ? l.recs : undefined };
   db.items[r.id] = it; delete db.dirty[r.id];
   if (current && current.id === r.id) {          // 열어 둔 문서가 다른 기기에서 바뀐 경우
     const sel = getOffsets();
@@ -952,7 +954,7 @@ function applyRemote(r) {
     editor.innerHTML = it.html || '<p><br></p>'; ensureBlocks();
     editor.classList.toggle('indent-on', !!it.indent); $('#indentChk').checked = !!it.indent;
     titleInp.value = it.title;
-    setOffsets(sel); hist = []; hi = -1; snap(); updateCount(); EDINK.load(it);
+    setOffsets(sel); hist = []; hi = -1; snap(); updateCount(); EDINK.load(it); EDREC.load(it);
   }
 }
 
@@ -1138,13 +1140,19 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) flush
 addEventListener('online', () => scheduleSync(500));
 setInterval(() => { if (!document.hidden) scheduleSync(100); }, 60000);
 
+EDREC.init({
+  editor, page: $('#page'), toast, ask: askText, confirm: askConfirm,
+  touch: d => { d.updated = Date.now(); markDirty(d.id); scheduleSave(); },
+});
 EDINK.init({
   page: $('#page'), scroller: $('#scroller'), toast,
+  recNow: () => EDREC.now(), onSeek: (r, t) => EDREC.seek(r, t),
   changed: () => { if (!current) return; current.updated = Date.now(); markDirty(current.id); scheduleSave(); },
   onActive: on => $('#btnInk').classList.toggle('on', on),
 });
 $('#btnInk').onclick = () => EDINK.toggle();
 $('#btnImg').onclick = () => EDINK.pickImage();
+$('#btnRec').onclick = () => EDREC.toggle();
 updateAccountBtn();
 $('#colorBar').style.background = lastColor;
 showHome();
