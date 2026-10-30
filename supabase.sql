@@ -100,3 +100,6 @@ grant select, insert, update, delete on public.eddytor_items to authenticated;
 -- [3] 펜 필기 데이터 (이미 위 표가 있어도 이 두 줄이 추가돼요. 여러 번 실행해도 안전)
 alter table public.eddytor_items add column if not exists ink jsonb;
 alter table public.eddytor_items add column if not exists ink_h integer not null default 0;
+
+-- [4] 쪽(페이지) 모드 설정
+alter table public.eddytor_items add column if not exists layout jsonb;

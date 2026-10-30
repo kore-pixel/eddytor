@@ -6,6 +6,20 @@
 const $ = (s, r = document) => r.querySelector(s);
 const CFG = window.EDDYTOR_CONFIG || window.BYEOL_CONFIG || {};   // 예전 이름(BYEOL_CONFIG)도 읽어요
 const SY = window.EDSYNC;
+// 올리다 빠진 파일이 있어도 앱 전체가 멈추지 않게, 없는 부분은 빈 동작으로 대신하고 화면 위에 알려요.
+{
+  const miss = [];
+  [['EDINK', 'ink.js'], ['EDREC', 'rec.js'], ['EDPDF', 'pdf.js'], ['EDPAGE', 'page.js']].forEach(([n, f]) => {
+    if (!window[n]) { miss.push(f); window[n] = new Proxy({}, { get: () => () => undefined }); }
+  });
+  if (miss.length) {
+    const b = document.createElement('div');
+    b.className = 'miss-banner';
+    b.textContent = 'GitHub에 빠진 파일이 있어요: ' + miss.join(', ') + ' — 업로드한 뒤 새로고침해 주세요. (그 파일의 기능만 동작하지 않아요)';
+    const x = document.createElement('button'); x.textContent = '✕'; x.onclick = () => b.remove();
+    b.append(x); document.body.append(b);
+  }
+}
 const LS_KEY = 'byeol.v1';   // 예전 문서가 그대로 보이도록 저장 이름은 바꾸지 않았어요
 
 const FONTS = {
@@ -450,7 +464,7 @@ function renderHome() {
 const renderHomeIfShown = () => { if (!$('#home').hidden) renderHome(); };
 function showHome() {
   if (current) flushNow();
-  EDINK.unload(); EDREC.unload(); EDPDF.unload();
+  EDINK.unload(); EDREC.unload(); EDPDF.unload(); EDPAGE.unload();
   current = null; db.open = null;
   $('#page').hidden = true; $('#home').hidden = false;
   $('#saveState').textContent = '';
@@ -475,7 +489,7 @@ function openDoc(id) {
   $('#page').hidden = false; $('#home').hidden = true;
   $('#btnShare').disabled = false; $('#btnExport').disabled = false;
   hist = []; hi = -1; snap();
-  EDINK.load(it); EDREC.load(it); EDPDF.load(it);
+  EDINK.load(it); EDREC.load(it); EDPDF.load(it); EDPAGE.load(it);
   persist(); renderTree(); updateCount(); updateState();
   $('#saveState').textContent = '';
   document.title = (it.title || '제목 없음') + ' · eddytor';
@@ -575,7 +589,7 @@ editor.addEventListener('beforeinput', e => {
 });
 editor.addEventListener('input', e => {
   if (ensureBlocks()) { const r = document.createRange(); r.selectNodeContents(editor); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
-  EDREC.mark(e.inputType);
+  EDREC.mark(e.inputType); EDPAGE.changed();
   onChanged();
 });
 editor.addEventListener('keydown', e => {
@@ -897,7 +911,7 @@ $('#btnBackup').onclick = () => {
         if (!it || !it.id) return;
         const have = db.items[it.id];
         if (have && have.updated >= it.updated) return;
-        if (it.type === 'doc') { it.html = sanitizeHTML(it.html || ''); it.ink = EDINK.clean(it.ink); it.pdfs = EDPDF.clean(it.pdfs); it.inkH = Number(it.inkH) || 0; }
+        if (it.type === 'doc') { it.html = sanitizeHTML(it.html || ''); it.ink = EDINK.clean(it.ink); it.pdfs = EDPDF.clean(it.pdfs); EDPAGE.cleanLayout(it); it.inkH = Number(it.inkH) || 0; }
         it.share = have ? have.share : null;
         db.items[it.id] = it; delete db.tomb[it.id]; markDirty(it.id); n++;
       });
@@ -923,7 +937,9 @@ const toRow = it => ({
   user_id: SY.session().user.id, id: it.id, type: it.type, parent: it.parent || null, title: it.title || '', html: it.html || '',
   indent: !!it.indent, share: it.share || null, created: it.created, updated: it.updated, deleted: false,
   ink: it.ink && it.ink.length ? it.ink : null, ink_h: it.inkH || 0,
+  layout: it.paged ? { paged: true, r: it.pageR || 'p', pages: it.pages || 1, bg: it.pageBg || 'none' } : null,
 });
+let noLayout = false;
 let syncing = false, syncAgain = false, syncSeq = 0;
 const setSync = t => { $('#syncState').textContent = t; };
 const loggedIn = () => !!(SY && SY.configured() && SY.session());
@@ -947,7 +963,8 @@ function applyRemote(r) {
     return;
   }
   delete db.tomb[r.id];
-  const it = { id: r.id, type: r.type, parent: r.parent, title: r.title, html: r.html, indent: !!r.indent, share: r.share, created: Number(r.created), updated: Number(r.updated), ink: EDINK.clean(r.ink), inkH: Number(r.ink_h) || 0, recs: l ? l.recs : undefined, pdfs: l ? l.pdfs : undefined };
+  const it = { id: r.id, type: r.type, parent: r.parent, title: r.title, html: r.html, indent: !!r.indent, share: r.share, created: Number(r.created), updated: Number(r.updated), ink: EDINK.clean(r.ink), inkH: Number(r.ink_h) || 0, recs: l ? l.recs : undefined, pdfs: l ? l.pdfs : undefined,
+    paged: !!(r.layout && r.layout.paged), pageR: r.layout && r.layout.r, pages: r.layout && r.layout.pages, pageBg: r.layout && r.layout.bg };
   db.items[r.id] = it; delete db.dirty[r.id];
   if (current && current.id === r.id) {          // 열어 둔 문서가 다른 기기에서 바뀐 경우
     const sel = getOffsets();
@@ -955,7 +972,7 @@ function applyRemote(r) {
     editor.innerHTML = it.html || '<p><br></p>'; ensureBlocks();
     editor.classList.toggle('indent-on', !!it.indent); $('#indentChk').checked = !!it.indent;
     titleInp.value = it.title;
-    setOffsets(sel); hist = []; hi = -1; snap(); updateCount(); EDINK.load(it); EDREC.load(it); EDPDF.load(it);
+    setOffsets(sel); hist = []; hi = -1; snap(); updateCount(); EDINK.load(it); EDREC.load(it); EDPDF.load(it); EDPAGE.load(it);
   }
 }
 
@@ -983,7 +1000,13 @@ async function syncNow() {
       rows.push({ user_id: SY.session().user.id, id, type: t.type || 'doc', parent: null, title: '', html: '', indent: false, share: null, created: t.t, updated: t.t, deleted: true });
     }
     if (rows.length) {
-      for (let i = 0; i < rows.length; i += 200) await SY.push(rows.slice(i, i + 200));
+      const doPush = async () => {
+        for (let i = 0; i < rows.length; i += 200) {
+          await SY.push(rows.slice(i, i + 200).map(r => { if (!noLayout) return r; const c = { ...r }; delete c.layout; return c; }));
+        }
+      };
+      try { await doPush(); }
+      catch (e) { if (!noLayout && /layout/i.test(String(e.message))) { noLayout = true; await doPush(); } else throw e; }   // 서버에 layout 열이 아직 없으면 그 열 없이 올려요
       for (const id of Object.keys(snapD)) if (db.dirty[id] === snapD[id]) delete db.dirty[id];
       for (const id of Object.keys(snapT)) if (db.tomb[id] && db.tomb[id].t === snapT[id].t) delete db.tomb[id];
     }
@@ -1148,12 +1171,15 @@ EDREC.init({
 EDINK.init({
   page: $('#page'), scroller: $('#scroller'), toast,
   recNow: () => EDREC.now(), onSeek: (r, t) => EDREC.seek(r, t),
-  changed: () => { if (!current) return; current.updated = Date.now(); markDirty(current.id); scheduleSave(); },
+  changed: () => { if (!current) return; current.updated = Date.now(); markDirty(current.id); scheduleSave(); EDPAGE.changed(); },
   onActive: on => $('#btnInk').classList.toggle('on', on),
 });
 $('#btnInk').onclick = () => EDINK.toggle();
 $('#btnImg').onclick = () => EDINK.pickImage();
 $('#btnRec').onclick = () => EDREC.toggle();
+EDPAGE.init({ page: $('#page'), scroller: $('#scroller'), body: $('#body'), editor, toast, dialog, menu: showMenu, confirm: askConfirm, closeDialog: () => dlg.close('x'),
+  touch: d => { d.updated = Date.now(); markDirty(d.id); scheduleSave(); } });
+$('#btnPage').onclick = () => EDPAGE.settings();
 EDPDF.init({ toast, ask: askText, confirm: askConfirm, dialog, closeDialog: () => dlg.close('x'), scroller: $('#scroller'), page: $('#page'),
   touch: d => { d.updated = Date.now(); markDirty(d.id); scheduleSave(); } });
 $('#btnPdf').onclick = () => EDPDF.pick();

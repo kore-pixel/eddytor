@@ -174,10 +174,12 @@ function setScale() {
   applyHeight(); renderUI();
 }
 function applyHeight() {
+  if (doc && doc.paged && window.EDPAGE) { EDPAGE.layout(); return; }
   const hgt = doc && doc.inkH ? doc.inkH * scale : 0;
   ctx.page.style.setProperty('--ink-h', hgt + 'px');
 }
 function ensureRoom(y) {   // 아래쪽 끝에 가까워지면 페이지를 자동으로 늘려요
+  if (doc.paged && window.EDPAGE) { EDPAGE.ensure(y); return; }
   const pageH = ctx.page.offsetHeight / scale;
   if (y > pageH - 100) { doc.inkH = Math.ceil(y + 500); applyHeight(); }
 }
@@ -645,7 +647,31 @@ async function importImages(map) {
 
 /* ---------- 바깥에서 쓰는 함수 ---------- */
 const E = window.EDINK = {
-  currentDoc: () => doc, nextY, ensureHeight, addHighlights, placePages, hasDoc: () => !!doc,
+  transformItems(fn) {                       // 쪽 삭제·이동용: fn(세로 중심) → null(지움) / 아래로 옮길 양
+    if (!doc) return;
+    const keep = [];
+    strokes.forEach(s => {
+      let cy;
+      if (s.kind === 'img') cy = s.y + s.h / 2;
+      else { let a = 1e9, b = -1e9; s.pts.forEach(p => { if (p[1] < a) a = p[1]; if (p[1] > b) b = p[1]; }); cy = (a + b) / 2; }
+      const r = fn(cy);
+      if (r === null) return;
+      if (r) { if (s.kind === 'img') s.y += r; else s.pts.forEach(p => { p[1] += r; }); }
+      keep.push(s);
+    });
+    strokes = keep; doc.ink = strokes; sel.clear(); renderAll(); commit();
+  },
+  currentDoc: () => doc, refreshHeight: () => { if (doc) applyHeight(); },
+  thumbNodes(y0, y1) {                       // 쪽 목록 썸네일용: 이 구간에 걸치는 그림·획의 복사본
+    const out = [];
+    strokes.filter(s => s.kind === 'img').forEach(s => { const e = els.get(s.id); if (e && s.y + s.h >= y0 && s.y <= y1) out.push(e.cloneNode(true)); });
+    strokes.filter(s => !s.kind).forEach(s => {
+      const e = els.get(s.id); if (!e) return;
+      let a = 1e9, b = -1e9; s.pts.forEach(p => { if (p[1] < a) a = p[1]; if (p[1] > b) b = p[1]; });
+      if (b + s.w >= y0 && a - s.w <= y1) out.push(e.cloneNode(true));
+    });
+    return out;
+  }, nextY, ensureHeight, addHighlights, placePages, hasDoc: () => !!doc,
   store: { put: idbPut, get: idbGet, del: idbDel }, setHead,
   clean, pickImage, collectImages, importImages,
   init(c) {
