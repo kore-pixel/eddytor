@@ -888,6 +888,7 @@ $('#btnBackup').onclick = () => {
     try {
       const data = JSON.parse(await f.text());
       if (!data.items) throw 0;
+      await EDINK.importImages(data.images);
       let n = 0;
       Object.values(data.items).forEach(it => {
         if (!it || !it.id) return;
@@ -906,7 +907,7 @@ $('#btnBackup').onclick = () => {
     title: '백업 · 복원',
     body: [
       h('div', { class: 'note', text: '문서는 이 기기에 저장돼요. 로그인하면 서버에도 보관돼요. 파일로 따로 백업해 두면 더 안전해요.' }),
-      h('button', { class: 'btn', text: '백업 파일 내려받기', onclick: () => { flushNow(); const copy = { items: JSON.parse(JSON.stringify(db.items)) }; Object.values(copy.items).forEach(i => { i.share = null; }); download('eddytor-백업-' + new Date().toISOString().slice(0, 10) + '.json', 'application/json', JSON.stringify(copy)); } }),
+      h('button', { class: 'btn', text: '백업 파일 내려받기', onclick: async () => { flushNow(); const copy = { items: JSON.parse(JSON.stringify(db.items)) }; Object.values(copy.items).forEach(i => { i.share = null; }); copy.images = await EDINK.collectImages(copy.items); download('eddytor-백업-' + new Date().toISOString().slice(0, 10) + '.json', 'application/json', JSON.stringify(copy)); } }),
       h('button', { class: 'btn', text: '백업 파일 불러오기', onclick: () => fileInp.click() }),
       fileInp,
     ],
@@ -1143,6 +1144,7 @@ EDINK.init({
   onActive: on => $('#btnInk').classList.toggle('on', on),
 });
 $('#btnInk').onclick = () => EDINK.toggle();
+$('#btnImg').onclick = () => EDINK.pickImage();
 updateAccountBtn();
 $('#colorBar').style.background = lastColor;
 showHome();
