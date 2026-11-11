@@ -1003,7 +1003,12 @@ async function syncNow() {
       const strip = r => { if (!noLayout) return r; const c = { ...r }; delete c.layout; return c; };
       const doPush = async () => {            // 용량이 큰 문서(필기·사진)는 한 번에 올리면 실패하니 크기별로 나눠 올려요
         let batch = [], size = 0;
-        const flush = async () => { if (batch.length) { await SY.push(batch); batch = []; size = 0; } };
+        const flush = async () => {             // 서버(PostgREST)는 한 묶음의 모든 행이 같은 열을 가져야 해요
+          if (!batch.length) return;
+          const keys = [...new Set(batch.flatMap(r => Object.keys(r)))];
+          await SY.push(batch.map(r => { const o = {}; keys.forEach(k => { o[k] = r[k] === undefined ? null : r[k]; }); return o; }));
+          batch = []; size = 0;
+        };
         for (const r0 of rows) {
           const r = strip(r0), n = JSON.stringify(r).length;
           if (batch.length && (size + n > 900000 || batch.length >= 50)) await flush();
