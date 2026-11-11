@@ -1006,7 +1006,7 @@ async function syncNow() {
         const flush = async () => {             // 서버(PostgREST)는 한 묶음의 모든 행이 같은 열을 가져야 해요
           if (!batch.length) return;
           const keys = [...new Set(batch.flatMap(r => Object.keys(r)))];
-          await SY.push(batch.map(r => { const o = {}; keys.forEach(k => { o[k] = r[k] === undefined ? null : r[k]; }); return o; }));
+          await SY.push(batch.map(r => { const o = {}; keys.forEach(k => { o[k] = r[k] === undefined ? (k === 'ink_h' ? 0 : null) : r[k]; }); return o; }));
           batch = []; size = 0;
         };
         for (const r0 of rows) {
