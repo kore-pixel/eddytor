@@ -939,7 +939,7 @@ const toRow = it => ({
   ink: it.ink && it.ink.length ? it.ink : null, ink_h: it.inkH || 0,
   layout: it.paged ? { paged: true, r: it.pageR || 'p', pages: it.pages || 1, bg: it.pageBg || 'none' } : null,
 });
-let noLayout = false;
+let noLayout = false, lastSyncErr = '';
 let syncing = false, syncAgain = false, syncSeq = 0;
 const setSync = t => { $('#syncState').textContent = t; };
 const loggedIn = () => !!(SY && SY.configured() && SY.session());
@@ -1000,10 +1000,16 @@ async function syncNow() {
       rows.push({ user_id: SY.session().user.id, id, type: t.type || 'doc', parent: null, title: '', html: '', indent: false, share: null, created: t.t, updated: t.t, deleted: true });
     }
     if (rows.length) {
-      const doPush = async () => {
-        for (let i = 0; i < rows.length; i += 200) {
-          await SY.push(rows.slice(i, i + 200).map(r => { if (!noLayout) return r; const c = { ...r }; delete c.layout; return c; }));
+      const strip = r => { if (!noLayout) return r; const c = { ...r }; delete c.layout; return c; };
+      const doPush = async () => {            // 용량이 큰 문서(필기·사진)는 한 번에 올리면 실패하니 크기별로 나눠 올려요
+        let batch = [], size = 0;
+        const flush = async () => { if (batch.length) { await SY.push(batch); batch = []; size = 0; } };
+        for (const r0 of rows) {
+          const r = strip(r0), n = JSON.stringify(r).length;
+          if (batch.length && (size + n > 900000 || batch.length >= 50)) await flush();
+          batch.push(r); size += n;
         }
+        await flush();
       };
       try { await doPush(); }
       catch (e) { if (!noLayout && /layout/i.test(String(e.message))) { noLayout = true; await doPush(); } else throw e; }   // 서버에 layout 열이 아직 없으면 그 열 없이 올려요
@@ -1014,7 +1020,9 @@ async function syncNow() {
     setSync('☁ 동기화됨 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
   } catch (e) {
     console.warn('sync', e);
-    setSync(/relation .* does not exist|PGRST205|42P01|PGRST204|\bink/i.test(String(e.message)) ? '동기화 실패: 서버 표가 없거나 오래됐어요 (supabase.sql 다시 실행)' : '동기화 실패 · 곧 다시 시도해요');
+    const m = String((e && e.message) || e || '');
+    lastSyncErr = m;
+    setSync(/relation .* does not exist|PGRST205|42P01|PGRST204|\bink/i.test(m) ? '동기화 실패: 서버 표가 없거나 오래됐어요 (supabase.sql 다시 실행)' : '동기화 실패 · ' + m.slice(0, 60));
     scheduleSync(30000);
   } finally {
     syncing = false;
