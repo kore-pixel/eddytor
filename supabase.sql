@@ -103,3 +103,6 @@ alter table public.eddytor_items add column if not exists ink_h integer not null
 
 -- [4] 쪽(페이지) 모드 설정
 alter table public.eddytor_items add column if not exists layout jsonb;
+
+-- 서버가 새 열을 바로 알아보도록 새로고침
+notify pgrst, 'reload schema';

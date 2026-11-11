@@ -1027,7 +1027,7 @@ async function syncNow() {
     console.warn('sync', e);
     const m = String((e && e.message) || e || '');
     lastSyncErr = m;
-    setSync(/relation .* does not exist|PGRST205|42P01|PGRST204|\bink/i.test(m) ? '동기화 실패: 서버 표가 없거나 오래됐어요 (supabase.sql 다시 실행)' : '동기화 실패 · ' + m.slice(0, 60));
+    setSync('동기화 실패 · ' + m.slice(0, 140));
     scheduleSync(30000);
   } finally {
     syncing = false;
